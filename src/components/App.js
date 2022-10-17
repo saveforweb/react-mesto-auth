@@ -1,5 +1,6 @@
-import { CurrentUserContext } from '../contexts/CurrentUserContext';
 import React from "react";
+import { Route, Routes, useNavigate, Navigate } from 'react-router-dom';
+import { CurrentUserContext } from '../contexts/CurrentUserContext';
 import Header from "./Header";
 import Main from "./Main";
 import Footer from "./Footer";
@@ -8,15 +9,41 @@ import EditProfilePopup from "./EditProfilePopup";
 import EditAvatarPopup from "./EditAvatarPopup";
 import AddPlacePopup from "./AddPlacePopup";
 import api from "../utils/Api";
+import apiAuth from "../utils/ApiAuth";
+import Login from "./Login";
+import Register from "./Register";
+import { ProtectedRoute } from "./ProtectedRoute";
+import InfoTooltip from "./InfoTooltip";
 
 function App() {
+  let navigate = useNavigate();
   const [isEditProfilePopupOpen, setIsEditProfilePopupOpen] = React.useState(false);
   const [isAddPlacePopupOpen, setIsAddPlacePopupOpen] = React.useState(false);
   const [isEditAvatarPopupOpen, setIsEditAvatarPopupOpen] = React.useState(false);
   const [selectedCard, setSelectedCard] = React.useState({ name: '', link: '' });
   const [currentUser, setCurrentUser] = React.useState({ name: '', about: '' });
+  const [currentUserEmail, setCurrentUserEmail] = React.useState('');
   const [cards, setCards] = React.useState([]);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [loggedIn, setLoggedIn] = React.useState(false);
+  const [isTooltipOpen, setIsTooltipOpen] = React.useState(false);
+  const [contentTooltip, setContentTooltip] = React.useState({ text: '', icon: '' });
+
+  React.useEffect(() => {
+    const jwt = localStorage.getItem('jwt');
+
+    if (jwt) {
+      apiAuth.checkToken(jwt)
+        .then((result) => {
+          setCurrentUserEmail(result.data.email);
+          setLoggedIn(true);
+          navigate("/");
+        })
+        .catch((result) => {
+          console.log(result);
+        })
+    }
+  }, []);
 
   React.useEffect(() => {
     api.getInitialCards()
@@ -80,6 +107,7 @@ function App() {
     setIsEditAvatarPopupOpen(false);
     setIsEditProfilePopupOpen(false);
     setIsAddPlacePopupOpen(false);
+    setIsTooltipOpen(false);
     setSelectedCard({ name: '', link: '' });
   }
 
@@ -132,7 +160,7 @@ function App() {
       })
   }
 
-  const isOpen = isEditAvatarPopupOpen || isEditProfilePopupOpen || isAddPlacePopupOpen || selectedCard.link;
+  const isOpen = isEditAvatarPopupOpen || isEditProfilePopupOpen || isAddPlacePopupOpen || selectedCard.link || isTooltipOpen;
 
   React.useEffect(() => {
     function closeByEscape(e) {
@@ -148,31 +176,89 @@ function App() {
     }
   }, [isOpen])
 
+  function handleLogoutButton() {
+    setLoggedIn(false);
+    localStorage.removeItem('jwt');
+    navigate("/sign-in");
+  }
+
+  function handleRegistrationSubmit({ email, password }) {
+    apiAuth.registrationUser(email, password)
+      .then((result) => {
+        navigate("/sign-in");
+        setContentTooltip({ text: 'Вы успешно зарегистрировались!', icon: true });
+        setIsTooltipOpen(true);
+      })
+      .catch((result) => {
+        setContentTooltip({ text: 'Что-то пошло не так! Попробуйте ещё раз.', icon: false });
+        setIsTooltipOpen(true);
+        console.log(result);
+      })
+  }
+
+  function handleAuthorizationSubmit({ email, password }) {
+    apiAuth.authorizationUser(email, password)
+      .then((result) => {
+        localStorage.setItem('jwt', result.token);
+        setCurrentUserEmail(email);
+        setLoggedIn(true);
+        navigate("/");
+      })
+      .catch((result) => {
+        setContentTooltip({ text: 'Что-то пошло не так! Попробуйте ещё раз.', icon: false });
+        setIsTooltipOpen(true);
+        console.log(result);
+      })
+  }
+
   return (
     <div className="page">
       <CurrentUserContext.Provider value={currentUser}>
-        <Header />
-        <Main
-          onEditProfile={handleEditProfileClick}
-          onAddPlace={handleAddPlaceClick}
-          onEditAvatar={handleEditAvatarClick}
-          onCardClick={handleCardClick}
-          cards={cards}
-          onCardLike={handleCardLike}
-          onCardDelete={handleCardDelete}
-        />
-        <Footer />
+        <Routes>
+          <Route path="/" element={
+            <ProtectedRoute loggedIn={loggedIn}>
+              <Header loggedIn={loggedIn} link='' text='Выйти' onLogout={handleLogoutButton} emailUser={currentUserEmail} />
+              <Main
+                onEditProfile={handleEditProfileClick}
+                onAddPlace={handleAddPlaceClick}
+                onEditAvatar={handleEditAvatarClick}
+                onCardClick={handleCardClick}
+                cards={cards}
+                onCardLike={handleCardLike}
+                onCardDelete={handleCardDelete}
+              />
+              <Footer />
 
-        <EditProfilePopup isOpen={isEditProfilePopupOpen} onClose={handleOverlay} onUpdateUser={handleUpdateUser} isLoading={isLoading} />
+              <EditProfilePopup isOpen={isEditProfilePopupOpen} onClose={handleOverlay} onUpdateUser={handleUpdateUser} isLoading={isLoading} />
 
-        <AddPlacePopup isOpen={isAddPlacePopupOpen} onClose={handleOverlay} onAddPlace={handleAddPlaceSubmit} isLoading={isLoading} />
+              <AddPlacePopup isOpen={isAddPlacePopupOpen} onClose={handleOverlay} onAddPlace={handleAddPlaceSubmit} isLoading={isLoading} />
 
-        <EditAvatarPopup isOpen={isEditAvatarPopupOpen} onClose={handleOverlay} onUpdateAvatar={handleUpdateAvatar} isLoading={isLoading} />
+              <EditAvatarPopup isOpen={isEditAvatarPopupOpen} onClose={handleOverlay} onUpdateAvatar={handleUpdateAvatar} isLoading={isLoading} />
 
-        <ImagePopup
-          card={selectedCard}
-          onClose={handleOverlay}
-        />
+              <ImagePopup
+                card={selectedCard}
+                onClose={handleOverlay}
+              />
+            </ProtectedRoute>
+          } />
+          <Route path="/sign-in" element={
+            <>
+              <Login onAuthorizationUser={handleAuthorizationSubmit} />
+              <InfoTooltip name='tooltip' isOpen={isTooltipOpen} onClose={handleOverlay} content={contentTooltip} />
+            </>
+          } />
+          <Route path="/sign-up" element={
+            <>
+              <Register onRegistrationUser={handleRegistrationSubmit} />
+              <InfoTooltip name='tooltip' isOpen={isTooltipOpen} onClose={handleOverlay} content={contentTooltip} />
+            </>
+          } />
+          <Route
+            path="*"
+            element={<Navigate to="/sign-in" />}
+          />
+        </Routes>
+
       </CurrentUserContext.Provider>
     </div>
   );
