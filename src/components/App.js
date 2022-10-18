@@ -16,7 +16,7 @@ import { ProtectedRoute } from "./ProtectedRoute";
 import InfoTooltip from "./InfoTooltip";
 
 function App() {
-  let navigate = useNavigate();
+  const navigate = useNavigate();
   const [isEditProfilePopupOpen, setIsEditProfilePopupOpen] = React.useState(false);
   const [isAddPlacePopupOpen, setIsAddPlacePopupOpen] = React.useState(false);
   const [isEditAvatarPopupOpen, setIsEditAvatarPopupOpen] = React.useState(false);
@@ -46,21 +46,23 @@ function App() {
   }, []);
 
   React.useEffect(() => {
-    api.getInitialCards()
-      .then((result) => {
-        setCards(result);
-      })
-      .catch((result) => {
-        console.log(result);
-      })
-    api.getUserInfo()
-      .then((result) => {
-        setCurrentUser(result);
-      })
-      .catch((result) => {
-        console.log(result);
-      })
-  }, []
+    if (loggedIn) {
+      api.getInitialCards()
+        .then((result) => {
+          setCards(result);
+        })
+        .catch((result) => {
+          console.log(result);
+        })
+      api.getUserInfo()
+        .then((result) => {
+          setCurrentUser(result);
+        })
+        .catch((result) => {
+          console.log(result);
+        })
+    }
+  }, [loggedIn]
   );
 
   function handleCardLike(card) {
