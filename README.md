@@ -22,6 +22,9 @@
 * Webpack, Babel
 * Работа с fetch запросами
 
+### Ссылка на GitHub Pages
+[https://saveforweb.github.io/react-mesto-auth/](https://saveforweb.github.io/react-mesto-auth/)
+
 ## Установка и запуск
 
 ### Требования:
